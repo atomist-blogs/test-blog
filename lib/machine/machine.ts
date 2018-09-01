@@ -15,6 +15,7 @@
  */
 
 import {
+    doWithFiles,
     SoftwareDeliveryMachine,
     SoftwareDeliveryMachineConfiguration,
 } from "@atomist/sdm";
@@ -23,6 +24,9 @@ import {
     summarizeGoalsInGitHubStatus,
 } from "@atomist/sdm-core";
 
+import { doWithAllMatches } from "@atomist/automation-client/tree/ast/astUtils";
+import { TypeScriptES6FileParser } from "@atomist/automation-client/tree/ast/typescript/TypeScriptFileParser";
+
 export function machine(
     configuration: SoftwareDeliveryMachineConfiguration,
 ): SoftwareDeliveryMachine {
@@ -30,6 +34,24 @@ export function machine(
     const sdm = createSoftwareDeliveryMachine({
         name: "Blank Seed Software Delivery Machine",
         configuration,
+    });
+
+    sdm.addEnforceableInvariant({
+        name: "testNaming",
+        intent: "update test",
+        transform: async project => {
+            await doWithAllMatches(project, TypeScriptES6FileParser,
+                "test/**/*.ts",
+                "//ImportDeclaration//StringLiteral",
+                m => {
+                    if (!m.$value.includes("/src")) {
+                        m.$value = m.$value.replace(/Test$/, ".test");
+                    }
+                });
+            return doWithFiles(project, "test/**/*.ts", async f => {
+                return f.setPath(f.path.replace(/Test\.ts$/, ".test.ts"));
+            });
+        },
     });
 
     summarizeGoalsInGitHubStatus(sdm);
