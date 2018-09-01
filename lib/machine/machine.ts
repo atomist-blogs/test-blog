@@ -18,6 +18,8 @@ import {
     doWithFiles,
     SoftwareDeliveryMachine,
     SoftwareDeliveryMachineConfiguration,
+    onAnyPush,
+    AutofixGoal,
 } from "@atomist/sdm";
 import {
     createSoftwareDeliveryMachine,
@@ -35,6 +37,8 @@ export function machine(
         name: "Blank Seed Software Delivery Machine",
         configuration,
     });
+
+    sdm.addGoalContributions(onAnyPush().setGoals(AutofixGoal));
 
     sdm.addEnforceableInvariant({
         name: "testNaming",
