@@ -16,6 +16,7 @@
 
 import {
     AutofixGoal,
+    CodeTransform,
     doWithFiles,
     onAnyPush,
     SoftwareDeliveryMachine,
@@ -29,6 +30,23 @@ import {
 import { doWithAllMatches } from "@atomist/automation-client/tree/ast/astUtils";
 import { TypeScriptES6FileParser } from "@atomist/automation-client/tree/ast/typescript/TypeScriptFileParser";
 
+/**
+ * CodeTransform that renames tests
+ */
+const RenameTests: CodeTransform = async project => {
+    await doWithAllMatches(project, TypeScriptES6FileParser,
+        "test/**/*.ts",
+        "//ImportDeclaration//StringLiteral",
+        m => {
+            if (!m.$value.includes("/src")) {
+                m.$value = m.$value.replace(/Test$/, ".test");
+            }
+        });
+    return doWithFiles(project, "test/**/*.ts", async f => {
+        return f.setPath(f.path.replace(/Test\.ts$/, ".test.ts"));
+    });
+};
+
 export function machine(
     configuration: SoftwareDeliveryMachineConfiguration,
 ): SoftwareDeliveryMachine {
@@ -38,24 +56,18 @@ export function machine(
         configuration,
     });
 
+    // Enable autofixes
     sdm.addGoalContributions(onAnyPush().setGoals(AutofixGoal));
 
-    sdm.addEnforceableInvariant({
-        name: "testNaming",
+    sdm.addCodeTransformCommand({
+        name: "test-naming",
         intent: "update test",
-        transform: async project => {
-            await doWithAllMatches(project, TypeScriptES6FileParser,
-                "test/**/*.ts",
-                "//ImportDeclaration//StringLiteral",
-                m => {
-                    if (!m.$value.includes("/src")) {
-                        m.$value = m.$value.replace(/Test$/, ".test");
-                    }
-                });
-            return doWithFiles(project, "test/**/*.ts", async f => {
-                return f.setPath(f.path.replace(/Test\.ts$/, ".test.ts"));
-            });
-        },
+        transform: RenameTests,
+    });
+
+    sdm.addAutofix({
+        name: "testNamingFix",
+        transform: RenameTests,
     });
 
     summarizeGoalsInGitHubStatus(sdm);
