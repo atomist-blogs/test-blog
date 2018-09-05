@@ -15,6 +15,7 @@
  */
 
 import {
+    doWithFiles,
     SoftwareDeliveryMachine,
     SoftwareDeliveryMachineConfiguration,
 } from "@atomist/sdm";
@@ -33,6 +34,14 @@ export function machine(
     });
 
     summarizeGoalsInGitHubStatus(sdm);
+
+    sdm.addCodeTransformCommand({
+        name: "standardize test filenames",
+        intent: "update test filenames",
+        transform: async project =>
+            doWithFiles(project, "test/**/*Test.ts", async file =>
+                file.setPath(file.path.replace(/Test.ts$/, ".test.ts"))),
+    });
 
     return sdm;
 }
