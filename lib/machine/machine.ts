@@ -39,8 +39,10 @@ export function machine(
         name: "standardize test filenames",
         intent: "update test filenames",
         transform: async project =>
-            doWithFiles(project, "test/**/*Test.ts", async file =>
-                file.setPath(file.path.replace(/Test.ts$/, ".test.ts"))),
+            doWithFiles(project, "test/**/*Test.ts", async file => {
+                await file.setPath(file.path.replace(/Test.ts$/, ".test.ts"));
+                return file.replace(/(import.*)Test"/g, "$1.test\"");
+            }),
     });
 
     return sdm;
