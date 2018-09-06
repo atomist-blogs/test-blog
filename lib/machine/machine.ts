@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+import { doWithAllMatches } from "@atomist/automation-client/tree/ast/astUtils";
+import { TypeScriptES6FileParser } from "@atomist/automation-client/tree/ast/typescript/TypeScriptFileParser";
 import {
+    CodeTransform,
     doWithFiles,
     SoftwareDeliveryMachine,
     SoftwareDeliveryMachineConfiguration,
@@ -38,12 +41,24 @@ export function machine(
     sdm.addCodeTransformCommand({
         name: "standardize test filenames",
         intent: "update test filenames",
-        transform: async project =>
-            doWithFiles(project, "test/**/*Test.ts", async file => {
-                await file.setPath(file.path.replace(/Test.ts$/, ".test.ts"));
-                return file.replace(/(import.*)Test"/g, "$1.test\"");
-            }),
+        transform: RenameTests,
     });
 
     return sdm;
 }
+
+/**
+ * CodeTransform that renames tests
+ */
+const RenameTests: CodeTransform = async project => {
+    await doWithAllMatches(project, TypeScriptES6FileParser,
+        "test/**/*.ts",
+        "//ImportDeclaration//StringLiteral",
+        m => {
+            if (!m.$value.includes("/src")) {
+                m.$value = m.$value.replace(/Test$/, ".test");
+            }
+        });
+    return doWithFiles(project, "test/**/*.ts", async f =>
+        f.setPath(f.path.replace(/Test\.ts$/, ".test.ts")));
+};
